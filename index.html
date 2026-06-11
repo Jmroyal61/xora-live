@@ -40,7 +40,7 @@
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // Railway backend se connect karna
+        // Aapka live Railway backend connection link
         const socket = io("https://xora-live-production.up.railway.app");
         let localStream;
         let pc;
@@ -53,7 +53,6 @@
         async function startMatching() {
             document.getElementById("status").innerText = "Accessing Camera & Joining Queue...";
             try {
-                // Camera and Mic permission
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById("localVideo").srcObject = localStream;
 
@@ -71,18 +70,14 @@
 
         socket.on("matched", async (data) => {
             document.getElementById("status").innerText = "Status: Match Found! Connecting video...";
-            
             pc = new RTCPeerConnection(config);
 
-            // Remote stream incoming handle karna
             pc.ontrack = (event) => {
                 document.getElementById("remoteVideo").srcObject = event.streams[0];
             };
 
-            // Local tracks add karna
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            // WebRTC Ice Candidates signal exchange
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit("signal", { to: data.partnerId, signal: { candidate: event.candidate } });
