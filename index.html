@@ -41,12 +41,7 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         //Aapka live Railway backend connection link
-        const socket = io({
-    transports: ['websocket', 'polling'],
-    reconnectionAttempts: 10,
-    reconnectionDelay: 1000,
-    timeout: 20000
-});
+        const socket = io();
 
 socket.on('connect', () => {
     document.getElementById('status').innerText = "Status: Connected to Server!";
