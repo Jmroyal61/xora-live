@@ -41,7 +41,10 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // Aapka live Railway backend connection link
-        const socket = io("https://xora-live-production.up.railway.app");
+        const socket = io({
+    transports: ['websocket'],
+    upgrade: false
+});
         let localStream;
         let pc;
         const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
