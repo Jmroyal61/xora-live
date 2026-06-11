@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 let boysQueue = [];
 let girlsQueue = [];
 
-// Yeh block aapke index.html ko direct browser mein load karega
+// Frontend static files serve karne ke liye
 app.use(express.static(path.join(__dirname)));
 
 app.get("/", (req, res) => {
