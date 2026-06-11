@@ -13,6 +13,8 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
+    console.log('User connected: ' + socket.id);
+
     socket.on('find-stranger', () => {
         waitingUsers = waitingUsers.filter(user => user.id !== socket.id);
         if (waitingUsers.length > 0) {
@@ -31,7 +33,13 @@ io.on('connection', (socket) => {
         io.to(data.to).emit('signal', { from: socket.id, signal: data.signal });
     });
 
+    socket.on('send_message', (data) => {
+        console.log('Message received: ', data);
+        io.emit('receive_message', data);
+    });
+
     socket.on('disconnect', () => {
+        console.log('User disconnected: ' + socket.id);
         waitingUsers = waitingUsers.filter(user => user.id !== socket.id);
         if (socket.partnerId) {
             io.to(socket.partnerId).emit('partner-disconnected');
