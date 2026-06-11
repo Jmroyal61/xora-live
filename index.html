@@ -1,47 +1,37 @@
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
+<select id="gender"><option value="boy">Boy</option><option value="girl">Girl</option></select>
+<button onclick="start()">Start Match</button>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
     const socket = io("https://xora-live-production.up.railway.app");
-    let localStream;
-    let peerConnection;
-    const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    let pc = new RTCPeerConnection({iceServers: [{urls: "stun:stun.l.google.com:19302"}]});
 
-    // 1. Camera access lena
-    async function startMatchingProcess() {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById("localVideo").srcObject = localStream;
-        
-        const gender = document.getElementById("gender").value;
-        socket.emit("start_match", { gender: gender });
+    async function start() {
+        let stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+        document.getElementById('localVideo').srcObject = stream;
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        socket.emit("start_match", document.getElementById("gender").value);
     }
 
-    // 2. Server se match milne par
-    socket.on("match_found", async (data) => {
-        peerConnection = new RTCPeerConnection(config);
-        
-        // Apna video track add karna
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        // Samne wale ka video dekhna
-        peerConnection.ontrack = (event) => {
-            document.getElementById("remoteVideo").srcObject = event.streams[0];
-        };
-
-        // Signaling: Offer bhejna
+    socket.on("matched", async (data) => {
+        pc.ontrack = e => document.getElementById('remoteVideo').srcObject = e.streams[0];
         if (data.initiator) {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit("send_signal", { to: data.partnerId, signal: { offer } });
+            let offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit("signal", {to: data.partnerId, signal: offer});
         }
     });
 
-    // 3. Signaling ka exchange
-    socket.on("receive_signal", async (data) => {
-        if (data.signal.offer) {
-            await peerConnection.setRemoteDescription(data.signal.offer);
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit("send_signal", { to: data.from, signal: { answer } });
-        } else if (data.signal.answer) {
-            await peerConnection.setRemoteDescription(data.signal.answer);
+    socket.on("signal", async (data) => {
+        if (data.signal.type === "offer") {
+            await pc.setRemoteDescription(data.signal);
+            let answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit("signal", {to: data.from, signal: answer});
+        } else {
+            await pc.setRemoteDescription(data.signal);
         }
     });
 </script>
