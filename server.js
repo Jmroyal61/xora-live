@@ -1,4 +1,4 @@
-t express = require("express");
+const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http, {
@@ -8,7 +8,6 @@ const io = require("socket.io")(http, {
     }
 });
 
-// Railway ke liye dynamic port setting (Yeh sabse zaroori hai)
 const PORT = process.env.PORT || 3000;
 
 let boysQueue = [];
@@ -19,10 +18,10 @@ app.get("/", (req, res) => {
 });
 
 io.on("connection", (socket) => {
-    console.log(User connected: ${socket.id});
+    console.log(`User connected: ${socket.id}`);
 
     socket.on("start_match", (gender) => {
-        console.log(Match request received for gender: ${gender});
+        console.log(`Match request received for gender: ${gender}`);
         if (gender === "boy") {
             if (girlsQueue.length > 0) {
                 let partner = girlsQueue.shift();
@@ -47,19 +46,18 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-        console.log(User disconnected: ${socket.id});
+        console.log(`User disconnected: ${socket.id}`);
         boysQueue = boysQueue.filter(s => s.id !== socket.id);
         girlsQueue = girlsQueue.filter(s => s.id !== socket.id);
     });
 });
 
 function match(boy, girl) {
-    console.log(Match Found: ${boy.id} (Boy) ❤️ ${girl.id} (Girl));
+    console.log(`Match Found: ${boy.id} (Boy) ❤️ ${girl.id} (Girl)`);
     boy.emit("matched", { partnerId: girl.id, initiator: true });
     girl.emit("matched", { partnerId: boy.id, initiator: false });
 }
 
-// 0.0.0.0 par listen karna takki external connections allow ho sakein
 http.listen(PORT, "0.0.0.0", () => {
-    console.log(Server is running on port ${PORT});
+    console.log(`Server is running on port ${PORT}`);
 });
