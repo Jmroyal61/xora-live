@@ -40,10 +40,23 @@
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // Aapka live Railway backend connection link
+        //Aapka live Railway backend connection link
         const socket = io({
-    transports: ['websocket'],
-    upgrade: false
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
+
+socket.on('connect', () => {
+    document.getElementById('status').innerText = "Status: Connected to Server!";
+    document.getElementById('status').style.color = "#4CAF50";
+});
+
+socket.on('connect_error', (error) => {
+    console.log("Connection Error:", error);
+    document.getElementById('status').innerText = "Status: Retrying connection...";
+    document.getElementById('status').style.color = "#FFC107";
 });
         let localStream;
         let pc;
