@@ -39,4 +39,4 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(PORT, () => { console.log(`Backend Active on port ${PORT}`); });
+http.listen(PORT, "0.0.0.0", () => { console.log(`Backend Active on port ${PORT}`); });
