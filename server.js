@@ -8,6 +8,10 @@ const io = require('socket.io')(http, {
 const PORT = process.env.PORT || 3000;
 let waitingUsers = [];
 
+app.get('/', (req, res) => {
+    res.send('Backend is running');
+});
+
 io.on('connection', (socket) => {
     socket.on('find-stranger', () => {
         waitingUsers = waitingUsers.filter(user => user.id !== socket.id);
