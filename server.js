@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http, {
@@ -13,8 +14,11 @@ const PORT = process.env.PORT || 3000;
 let boysQueue = [];
 let girlsQueue = [];
 
+// Yeh block aapke index.html ko direct browser mein load karega
+app.use(express.static(path.join(__dirname)));
+
 app.get("/", (req, res) => {
-    res.send("Xora Live Backend is Running perfectly!");
+    res.sendFile(path.join(__dirname, "index.html"));
 });
 
 io.on("connection", (socket) => {
