@@ -75,14 +75,33 @@
         const socket = io();
         let localStream;
         let pc;
-        let isVIP = false; // By default user free rahega
+        let isVIP = false; 
         const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-        function loginWithGoogle() {
+        // Auto Camera Access init karne ke liye function
+        async function initCamera() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 320, height: 240, frameRate: 15 }, 
+                    audio: true 
+                });
+                document.getElementById('localVideo').srcObject = localStream;
+                return true;
+            } catch (err) {
+                console.error("Camera error: ", err);
+                alert("Please allow Camera and Mic permissions from browser settings then refresh!");
+                return false;
+            }
+        }
+
+        async function loginWithGoogle() {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'block';
             document.getElementById('user-name').innerText = "Jawaharlal Mahto";
-            document.getElementById('profile-pic').src = "https://lh3.googleusercontent.com/a/default-user=s100";
+            document.getElementById('profile-pic').src = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100";
+            
+            // Login hote hi pehle camera chalu karega taaki track fail na ho
+            await initCamera();
         }
 
         function checkVIPPreference() {
@@ -107,24 +126,31 @@
             const preference = document.getElementById('searchPreference').value;
             document.getElementById('status').innerText = "Searching according to your preference...";
             
-            try {
-                if(!localStream){
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: true });
-                    document.getElementById('localVideo').srcObject = localStream;
-                }
-                // Server ko user ka gender aur choice dono bhej rahe hain
-                socket.emit('register', { gender: myGender, preference: preference, isVIP: isVIP });
-            } catch (err) {
-                alert("Camera permission required!");
+            // Check condition agar stream ready nahi hai toh re-init karega
+            if (!localStream) {
+                const hasCam = await initCamera();
+                if (!hasCam) return;
             }
+            
+            socket.emit('register', { gender: myGender, preference: preference, isVIP: isVIP });
         }
 
         socket.on("matched", async (data) => {
             document.getElementById('status').innerText = "Connected with " + data.partnerGender;
             pc = new RTCPeerConnection(config);
-            pc.ontrack = (e) => { document.getElementById('remoteVideo').srcObject = e.streams[0]; };
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-            pc.onicecandidate = (e) => { if (e.candidate) socket.emit("signal", { to: data.partnerId, signal: { candidate: e.candidate } }); };
+            
+            pc.ontrack = (e) => { 
+                document.getElementById('remoteVideo').srcObject = e.streams[0]; 
+            };
+            
+            if (localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            }
+            
+            pc.onicecandidate = (e) => { 
+                if (e.candidate) socket.emit("signal", { to: data.partnerId, signal: { candidate: e.candidate } }); 
+            };
+            
             if (data.createOffer) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
@@ -141,7 +167,9 @@
                     await pc.setLocalDescription(ans);
                     socket.emit("signal", { to: data.from, signal: { sdp: ans } });
                 }
-            } else if (data.signal.candidate) { await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate)); }
+            } else if (data.signal.candidate) { 
+                await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate)); 
+            }
         });
     </script>
 </body>
