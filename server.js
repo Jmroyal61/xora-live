@@ -1,67 +1,73 @@
-const express = require("express");
-const path = require("path");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+app.use(express.static(path.join(__dirname, '/')));
+
+// Alag-alag matching pools
+let allUsers = []; 
+
+io.on('connection', (socket) => {
+    console.log('User Connected:', socket.id);
+
+    socket.on('register', (data) => {
+        socket.gender = data.gender;
+        socket.preference = data.preference; 
+        socket.isVIP = data.isVIP;
+        socket.isMatched = false;
+
+        // Purani list se hatakar fresh insert karna
+        allUsers = allUsers.filter(u => u.id !== socket.id);
+        allUsers.push(socket);
+
+        findMatch(socket);
+    });
+
+    socket.on('signal', (data) => {
+        io.to(data.to).emit('signal', { from: socket.id, signal: data.signal });
+    });
+
+    socket.on('disconnect', () => {
+        allUsers = allUsers.filter(u => u.id !== socket.id);
+    });
 });
 
-const PORT = process.env.PORT || 3000;
+function findMatch(socket) {
+    if (socket.isMatched) return;
 
-let boysQueue = [];
-let girlsQueue = [];
+    for (let partner of allUsers) {
+        if (partner.id !== socket.id && !partner.isMatched) {
+            
+            // Checking Conditions for Matching
+            let socketMatchesPartner = (socket.preference === "Random") || 
+                                       (socket.preference === "Only Girl" && partner.gender === "Girl") || 
+                                       (socket.preference === "Only Boy" && partner.gender === "Boy");
 
-// Frontend static files serve karne ke liye
-app.use(express.static(path.join(__dirname)));
+            let partnerMatchesSocket = (partner.preference === "Random") || 
+                                       (partner.preference === "Only Girl" && socket.gender === "Girl") || 
+                                       (partner.preference === "Only Boy" && socket.gender === "Boy");
 
-app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
-});
+            // Agar dono ki shartein aapas mein match ho jati hain
+            if (socketMatchesPartner && partnerMatchesSocket) {
+                socket.isMatched = true;
+                partner.isMatched = true;
 
-io.on("connection", (socket) => {
-    console.log(`User connected: ${socket.id}`);
+                // Match connect command bhejna
+                socket.emit('matched', { partnerId: partner.id, createOffer: true, partnerGender: partner.gender });
+                partner.emit('matched', { partnerId: socket.id, createOffer: false, partnerGender: socket.gender });
 
-    socket.on("start_match", (gender) => {
-        console.log(`Match request received for gender: ${gender}`);
-        if (gender === "boy") {
-            if (girlsQueue.length > 0) {
-                let partner = girlsQueue.shift();
-                match(socket, partner);
-            } else {
-                if (!boysQueue.includes(socket)) boysQueue.push(socket);
-                socket.emit("waiting", "Looking for a girl...");
-            }
-        } else if (gender === "girl") {
-            if (boysQueue.length > 0) {
-                let partner = boysQueue.shift();
-                match(partner, socket);
-            } else {
-                if (!girlsQueue.includes(socket)) girlsQueue.push(socket);
-                socket.emit("waiting", "Looking for a boy...");
+                // Pool se dono ko remove kar dena taaki naya match na mile beech mein
+                allUsers = allUsers.filter(u => u.id !== socket.id && u.id !== partner.id);
+                break;
             }
         }
-    });
-
-    socket.on("signal", (data) => {
-        io.to(data.to).emit("signal", { from: socket.id, signal: data.signal });
-    });
-
-    socket.on("disconnect", () => {
-        console.log(`User disconnected: ${socket.id}`);
-        boysQueue = boysQueue.filter(s => s.id !== socket.id);
-        girlsQueue = girlsQueue.filter(s => s.id !== socket.id);
-    });
-});
-
-function match(boy, girl) {
-    console.log(`Match Found: ${boy.id} (Boy) ❤️ ${girl.id} (Girl)`);
-    boy.emit("matched", { partnerId: girl.id, initiator: true });
-    girl.emit("matched", { partnerId: boy.id, initiator: false });
+    }
 }
 
-http.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`VIP Engine Active on Port ${PORT}`));
